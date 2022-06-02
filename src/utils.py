@@ -1,17 +1,17 @@
 import logging
 
-# Импорт базового класса ошибок библиотеки request.
 from requests import RequestException
+
 from exceptions import ParserFindTagException
 
-# Перехват ошибки RequestException.
+
 def get_response(session, url):
     """
     Функция для получения http ответа по url.
     Если ответ не получен, сообщает об ошибке.
     """
     try:
-        response = session.get(url) 
+        response = session.get(url)
         response.encoding = 'utf-8'
         return response
     except RequestException:
@@ -20,7 +20,7 @@ def get_response(session, url):
             stack_info=True
         )
 
-# Перехват ошибки поиска тегов.
+
 def find_tag(soup, tag, attrs=None, string=None):
     """
     Функция для поиска тега в html странице.
