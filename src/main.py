@@ -23,7 +23,8 @@ def whats_new(session):
     soup = BeautifulSoup(response.text, features='lxml')
     main_div = find_tag(soup, 'section', attrs={'id': 'what-s-new-in-python'})
     div_with_ul = find_tag(main_div, 'div', attrs={'class': 'toctree-wrapper'})
-    sections_by_python = div_with_ul.find_all('li', attrs={'class': 'toctree-l1'})
+    sections_by_python = div_with_ul.find_all('li',
+                                              attrs={'class': 'toctree-l1'})
     results = [('Ссылка на статью', 'Заголовок', 'Редактор, Автор')]
     for section in tqdm(sections_by_python):
         version_a_tag = find_tag(section, 'a')
@@ -40,6 +41,7 @@ def whats_new(session):
             (version_link, h1.text, dl_text)
         )
     return results
+
 
 def latest_versions(session):
     """
@@ -72,6 +74,7 @@ def latest_versions(session):
         )
     return results
 
+
 def download(session):
     """
     Парсер скачивающий zip архив с документацией python в pdf формате.
@@ -83,7 +86,8 @@ def download(session):
     soup = BeautifulSoup(response.text, features='lxml')
     main_tag = find_tag(soup, 'div', attrs={'role': 'main'})
     table_tag = find_tag(main_tag, 'table', attrs={'class': 'docutils'})
-    pdf_a4_tag = find_tag(table_tag, 'a', attrs={'href': re.compile(r'.+pdf-a4\.zip$')})
+    pdf_a4_tag = find_tag(table_tag, 'a',
+                          attrs={'href': re.compile(r'.+pdf-a4\.zip$')})
     pdf_a4_link = pdf_a4_tag['href']
     archive_url = urljoin(downloads_url, pdf_a4_link)
     filename = archive_url.split('/')[-1]
@@ -94,6 +98,7 @@ def download(session):
     with open(archive_path, 'wb') as file:
         file.write(response.content)
     logging.info(f'Архив был загружен и сохранён: {archive_path}')
+
 
 def pep(session):
     """
@@ -120,7 +125,8 @@ def pep(session):
         pep_url = urljoin(PEP_URL, a_tag['href'])
         response = get_response(session, pep_url)
         soup = BeautifulSoup(response.text, features='lxml')
-        dl_tag = find_tag(soup, 'dl', attrs={'class': 'rfc2822 field-list simple'})
+        dl_tag = find_tag(soup, 'dl',
+                          attrs={'class': 'rfc2822 field-list simple'})
         dd_tag = find_tag(
             dl_tag, 'dt', attrs={'class': 'field-even'}
         ).find_next_sibling('dd')
@@ -153,6 +159,7 @@ MODE_TO_FUNCTION = {
     'pep': pep,
 }
 
+
 def main():
     configure_logging()
     logging.info('Парсер запущен!')
@@ -167,6 +174,7 @@ def main():
     if results is not None:
         control_output(results, args)
     logging.info('Парсер завершил работу.')
+
 
 if __name__ == '__main__':
     main()
