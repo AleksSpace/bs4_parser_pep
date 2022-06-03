@@ -1,5 +1,6 @@
 import logging
 import re
+from collections import defaultdict
 from urllib.parse import urljoin
 
 import requests_cache
@@ -7,7 +8,8 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 
 from configs import configure_argument_parser, configure_logging
-from constants import BASE_DIR, EXPECTED_STATUS, MAIN_DOC_URL, PEP_URL
+from constants import (BASE_DIR, DOWNLOADS_URL, EXPECTED_STATUS, MAIN_DOC_URL,
+                       PEP_URL, WHATS_NEW_URL)
 from outputs import control_output
 from utils import find_tag, get_response
 
@@ -16,10 +18,7 @@ def whats_new(session):
     """
     Парсер выводящий спсок изменений в python.
     """
-    whats_new_url = urljoin(MAIN_DOC_URL, 'whatsnew/')
-    response = get_response(session, whats_new_url)
-    if response is None:
-        return
+    response = get_response(session, WHATS_NEW_URL)
     soup = BeautifulSoup(response.text, features='lxml')
     main_div = find_tag(soup, 'section', attrs={'id': 'what-s-new-in-python'})
     div_with_ul = find_tag(main_div, 'div', attrs={'class': 'toctree-wrapper'})
@@ -29,7 +28,7 @@ def whats_new(session):
     for section in tqdm(sections_by_python):
         version_a_tag = find_tag(section, 'a')
         href = version_a_tag['href']
-        version_link = urljoin(whats_new_url, href)
+        version_link = urljoin(WHATS_NEW_URL, href)
         response = get_response(session, version_link)
         if response is None:
             continue
@@ -48,8 +47,6 @@ def latest_versions(session):
     Парсер выводящий список версий python и ссылки на их документацию.
     """
     response = get_response(session, MAIN_DOC_URL)
-    if response is None:
-        return
     soup = BeautifulSoup(response.text, features='lxml')
 
     sidebar = find_tag(soup, 'div', attrs={'class': 'sphinxsidebarwrapper'})
@@ -79,17 +76,14 @@ def download(session):
     """
     Парсер скачивающий zip архив с документацией python в pdf формате.
     """
-    downloads_url = urljoin(MAIN_DOC_URL, 'download.html')
-    response = get_response(session, downloads_url)
-    if response is None:
-        return
+    response = get_response(session, DOWNLOADS_URL)
     soup = BeautifulSoup(response.text, features='lxml')
     main_tag = find_tag(soup, 'div', attrs={'role': 'main'})
     table_tag = find_tag(main_tag, 'table', attrs={'class': 'docutils'})
     pdf_a4_tag = find_tag(table_tag, 'a',
                           attrs={'href': re.compile(r'.+pdf-a4\.zip$')})
     pdf_a4_link = pdf_a4_tag['href']
-    archive_url = urljoin(downloads_url, pdf_a4_link)
+    archive_url = urljoin(DOWNLOADS_URL, pdf_a4_link)
     filename = archive_url.split('/')[-1]
     downloads_dir = BASE_DIR / 'downloads'
     downloads_dir.mkdir(exist_ok=True)
@@ -108,17 +102,14 @@ def pep(session):
     и на отдельной странице документа.
     """
     response = get_response(session, PEP_URL)
-    if response is None:
-        return
     soup = BeautifulSoup(response.text, features='lxml')
 
     section_tag = find_tag(soup, 'section', attrs={'id': 'numerical-index'})
     tbody_tag = find_tag(section_tag, 'tbody')
     tr_tags = tbody_tag.find_all('tr')
     results = [('Cтатус', 'Количество')]
-    pep_sum = {}
+    pep_sum = defaultdict(list)
     total_sum = 0
-    diff = []
     for tr_tag in tqdm(tr_tags):
         total_sum += 1
         a_tag = find_tag(tr_tag, 'a', attrs={'class': 'reference external'})
@@ -131,23 +122,22 @@ def pep(session):
             dl_tag, 'dt', attrs={'class': 'field-even'}
         ).find_next_sibling('dd')
         status = dd_tag.string
-        status_in_main_page = find_tag(tr_tag, 'td').string[1:]
-        if status not in EXPECTED_STATUS[status_in_main_page]:
-            diff.append([pep_url, status, status_in_main_page])
-        if status in pep_sum:
-            pep_sum[status] += 1
+        status_in_page = find_tag(tr_tag, 'td').string[1:]
+        try:
+            if status not in EXPECTED_STATUS[status_in_page]:
+                if (len(status_in_page) > 2 or
+                        EXPECTED_STATUS[status_in_page] is None):
+                    raise KeyError('Получен неожиданный статус')
+                logging.info(
+                    f'Несовпадающие статусы:\n {pep_url}\n'
+                    f'Cтатус в карточке: {status}\n'
+                    f'Ожидаемые статусы: {EXPECTED_STATUS[status_in_page]}'
+                )
+        except KeyError:
+            logging.warning('Получен некорректный статус')
         else:
-            pep_sum[status] = 1
-    if diff:
-        for pep_url, status, status_in_main_page in diff:
-            logging.info(
-                f'Несовпадающие статусы:'
-                f'{pep_url}'
-                f'Cтатус в карточке: {status}'
-                f'Ожидаемые статусы: {EXPECTED_STATUS[status_in_main_page]}'
-            )
-    for key, value in pep_sum.items():
-        results.append((key, value))
+            pep_sum[status] = pep_sum.get(status, 0) + 1
+    results.extend(pep_sum.items())
     results.append(('Total: ', total_sum))
     return results
 

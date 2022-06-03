@@ -6,6 +6,11 @@ from prettytable import PrettyTable
 
 from constants import BASE_DIR, DATETIME_FORMAT
 
+CHOICES = {
+    'pretty': 'pretty',
+    'file': 'file',
+}
+
 
 def control_output(results, cli_args):
     """
@@ -13,9 +18,9 @@ def control_output(results, cli_args):
     По ним определяет, в каком виде нужно предоставить данные.
     """
     output = cli_args.output
-    if output == 'pretty':
+    if output == CHOICES['pretty']:
         pretty_output(results)
-    elif output == 'file':
+    elif output == CHOICES['file']:
         file_output(results, cli_args)
     else:
         default_output(results)
