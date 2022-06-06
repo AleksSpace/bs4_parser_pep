@@ -6,27 +6,22 @@ from prettytable import PrettyTable
 
 from constants import BASE_DIR, DATETIME_FORMAT
 
-CHOICES = {
-    'pretty': 'pretty',
-    'file': 'file',
-}
-
 
 def control_output(results, cli_args):
     """
     Анализирует атрибуты, указанные при запуске программы.
     По ним определяет, в каком виде нужно предоставить данные.
     """
-    output = cli_args.output
-    if output == CHOICES['pretty']:
-        pretty_output(results)
-    elif output == CHOICES['file']:
-        file_output(results, cli_args)
-    else:
-        default_output(results)
+    CHOICES = {
+        'pretty': pretty_output,
+        'file': file_output,
+        None: default_output
+    }
+
+    CHOICES[cli_args.output](results, cli_args)
 
 
-def default_output(results):
+def default_output(results, cli_args):
     """
     Функция для вывода результата работы программы в консоль.
     """
@@ -34,7 +29,7 @@ def default_output(results):
         print(*row)
 
 
-def pretty_output(results):
+def pretty_output(results, cli_args):
     """
     Функция для вывода результата работы
     программы в коносль в виде таблицы.
